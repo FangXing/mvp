@@ -145,7 +145,7 @@ func (t *cc1) report(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 
 	report_key :=fmt.Sprintf("%s:%s:%s:%s",args[0],args[1],args[2],args[3])
 	reporterr := stub.PutState(report_key,[]byte(string(jsonRsp)))
-	if err != nil {
+	if reporterr != nil {
 		fmt.Println(reporterr)
 	} else {
 		fmt.Println("report key",report_key)
