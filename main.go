@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-
+	"strconv"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
 	"encoding/base64"
@@ -23,6 +23,8 @@ func (t *cc1) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return t.submit(stub, args)
 	}else if function == "query" {
 		return t.query(stub, args)
+	}else if function == "report"{
+		return t.report(stub, args)
 	}
 
 
@@ -89,10 +91,72 @@ func (t *cc1) query(stub shim.ChaincodeStubInterface, args []string) pb.Response
 	if err != nil{
 		return shim.Error(err.Error())
 	}
+
 	return shim.Success(jsonRsp)
-
-
 }
+
+func string_to_map(s string)(map[string]interface {}){
+    var fp map[string]interface{}
+    // var fp map[string]string
+    // 将字符串反解析为字典
+    json.Unmarshal([]byte(s), &fp)
+    // fmt.Println(fp)
+    return fp 
+}
+
+func (t *cc1) report(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+
+	gxf := args[0]
+	sh := args[1]
+	start := args[2]
+	end := args[3]
+	startKey:=fmt.Sprintf("%s:%s:%s",gxf,sh,start)
+	endKey:=fmt.Sprintf("%s:%s:%s",gxf,sh,end)
+	info,err := stub.GetStateByRange(startKey,endKey)
+	var num int = 0
+	var je float64 = 0.0//float64 = 0.0
+	// var temp float64 
+	for info.HasNext(){
+		response, interErr := info.Next()
+		if interErr != nil{
+			return shim.Error(interErr.Error())
+		}
+		
+		fp := string_to_map(string(response.Value))
+		var fpje interface{} = fp["fpxx"].(map[string]interface{})["je"]
+		fpjestr:=fmt.Sprintf("%s",fpje)
+		temp, err := strconv.ParseFloat(fpjestr, 64)
+		if err != nil{
+			return shim.Error(err.Error())
+		}		
+		je = je + temp
+		num = num + 1
+	}
+
+
+	result := make(map[string]string)
+	result["num"] = strconv.Itoa(num)
+	result["je"] = strconv.FormatFloat(je, 'E', -1, 64)
+	jsonRsp, err := json.Marshal(result)
+	if err != nil{
+		return shim.Error(err.Error())
+	}
+	fmt.Println(jsonRsp)
+
+	report_key :=fmt.Sprintf("%s:%s:%s:%s",args[0],args[1],args[2],args[3])
+	reporterr := stub.PutState(report_key,[]byte(string(jsonRsp)))
+	if err != nil {
+		fmt.Println(reporterr)
+	} else {
+		fmt.Println("report key",report_key)
+	}
+	return shim.Success(jsonRsp)
+}
+
+
+
+
+
 func base64Decode(src []byte) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(string(src))
 }
