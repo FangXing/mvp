@@ -136,12 +136,14 @@ func string_to_map(s string)(map[string]interface {}){
 
 func (t *cc1) report(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 
+	fpdata:="fpdata"
 	gxf := args[0]
 	sh := args[1]
 	start := args[2]
 	end := args[3]
-	startKey:=fmt.Sprintf("%s:%s:%s",gxf,sh,start)
-	endKey:=fmt.Sprintf("%s:%s:%s",gxf,sh,end)
+	startKey:=fmt.Sprintf("%s:%s:%s:%s",fpdata,gxf,sh,start)
+	endKey:=fmt.Sprintf("%s:%s:%s:%s",fpdata,gxf,sh,end)
+
 	info,err := stub.GetStateByRange(startKey,endKey)
 	var num int = 0
 	var je float64 = 0.0//float64 = 0.0
