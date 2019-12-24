@@ -95,12 +95,13 @@ func (t *cc1) query(stub shim.ChaincodeStubInterface, args []string) pb.Response
 	var result string
 	/*var response string
 	var interErr Error*/
+	fpdata:="fpdata"
 	gxf := args[0]
 	sh := args[1]
 	start := args[2]
 	end := args[3]
-	startKey:=fmt.Sprintf("%s:%s:%s",gxf,sh,start)
-	endKey:=fmt.Sprintf("%s:%s:%s",gxf,sh,end)
+	startKey:=fmt.Sprintf("%s:%s:%s:%s",fpdata,gxf,sh,start)
+	endKey:=fmt.Sprintf("%s:%s:%s:%s",fpdata,gxf,sh,end)
 	info,err := stub.GetStateByRange(startKey,endKey)
 
 	rsp := make(map[string]string)
