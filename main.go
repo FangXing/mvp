@@ -20,7 +20,7 @@ func (t *cc1) Init(stub shim.ChaincodeStubInterface) pb.Response {
 }
 
 func (t *cc1) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
-	fmt.Println("ex02 Invoke")
+
 	function, args := stub.GetFunctionAndParameters()
 	if function == "submit" {
 		return t.submit(stub, args)
@@ -37,7 +37,7 @@ func (t *cc1) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	}
 	return shim.Error("Invalid Smart Contract function name.")
 }
-
+// pb.Response
 func (t *cc1) submit(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 	datas ,_:= base64.StdEncoding.DecodeString(args[0])
 
@@ -173,7 +173,7 @@ func (t *cc1) report(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 		return shim.Error(jsonResp)
 	}
 
-	fmt.Println("aaaa")
+
 
 	var num int = 0
 	var je float64 = 0.0//float64 = 0.0
@@ -198,18 +198,18 @@ func (t *cc1) report(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 		num = num + 1
 	}
 
-	fmt.Println("bbbb")
+
 
 	result := make(map[string]string)
 	result["num"] = strconv.Itoa(num)
-	result["je"] = strconv.FormatFloat(je, 'E', -1, 64)
+	result["je"] = strconv.FormatFloat(je, 'f', -1, 64)
 	jsonRsp, err := json.Marshal(result)
 	if err != nil{
 		return shim.Error(err.Error())
 	}
 	fmt.Println(jsonRsp)
 
-	report_key :=fmt.Sprintf("%s:%s:%s:%s",args[0],args[1],args[2],args[3])
+	report_key :=fmt.Sprintf("report:%s:%s:%s:%s",args[0],args[1],args[2],args[3])
 	reporterr := stub.PutState(report_key,[]byte(string(jsonRsp)))
 	if reporterr != nil {
 		fmt.Println(reporterr)
