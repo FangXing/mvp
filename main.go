@@ -35,84 +35,83 @@ func (t *cc1) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	}else if function == "revoke"{
 		return t.revoke(stub, args)
 	}
-
-
 	return shim.Error("Invalid Smart Contract function name.")
 }
 
 func (t *cc1) submit(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 	datas ,_:= base64.StdEncoding.DecodeString(args[0])
+
+
+	fmt.Println(datas)
+	fmt.Println(string(datas))
 	var s []map[string]interface {}
 	var a map[string]interface {}
-	err :=json.Unmarshal(datas, &s)
+	var err error
+	err =json.Unmarshal(datas, &s)
+
 	if err!= nil {
 		fmt.Println(err)
+		return shim.Error(err.Error())
 	}
+	// var gfsbh string
+	// var gfkprq string
+	var gfKey string
+
+	// var xfsbh string
+	// var xfkprq string
+	var xfKey string
+	// var row map[string]interface {}
+
+
 	for i:=0;i<len(s);i++{
-		data:=s[i]
-		a = data["fpxx"].(map[string]interface {})
-		gffp := "fpdata:gffp"
-		var gfsbh  interface{} = a["gfsbh"]
-		var gfkprq  interface{} =a["kprq"]
-		gfKey:=fmt.Sprintf("%s:%s:%s",gffp,gfsbh,gfkprq)
-		gferr:=stub.PutState(gfKey,datas)
+		// data:=s[i]
+		a = s[i]["fpxx"].(map[string]interface {})
 
-		if gferr!= nil {
-			fmt.Println(gferr)
-		}
-		xffp :="fpdata:xffp"
-		var xfsbh  interface{} =a["xfsbh"]
-		var xfkprq  interface{} =a["kprq"]
-		xfKey:=fmt.Sprintf("%s:%s:%s",xffp,xfsbh,xfkprq)
-		xferr:=stub.PutState(xfKey,datas)
+		gfKey = fmt.Sprintf("fpdata:gffp:%s:%s",a["gfsbh"],a["kprq"])
 
-		if xferr!= nil {
-			fmt.Println(xferr)
+		fmt.Printf(gfKey)
+		datastr,err := json.Marshal(s[i])
+		fmt.Printf(string(datastr))
+		if err != nil {
+			fmt.Println(err)
+			return shim.Error(err.Error())
 		}
 
-	}
-	/*for i:=0;i<len(args);i++ {
-		arrays:=args[i]
-		*//*bytes ,_:= base64.StdEncoding.DecodeString(arrays)*//*
-		m := make(map[string]interface{})
-		err := json.Unmarshal([]byte(arrays), &m)
+		err = stub.PutState(gfKey,[]byte(string(datastr)))
 		if err!= nil {
 			fmt.Println(err)
-		} else {
-			gffp := "gffp"
-			var gfsbh  interface{} = m["fpxx"].(map[string]interface{})["gfsbh"]
-			var gfkprq  interface{} = m["fpxx"].(map[string]interface{})["kprq"]
-			gfKey:=fmt.Sprintf("%s:%s:%s",gffp,gfsbh,gfkprq)
-			gferr:=stub.PutState(gfKey,[]byte(string(bytes)))
-			if gferr!= nil {
-				fmt.Println(gferr)
-			}
-			xffp :="xffp"
-			var xfsbh  interface{} = m["fpxx"].(map[string]interface{})["xfsbh"]
-			var xfkprq  interface{} = m["fpxx"].(map[string]interface{})["kprq"]
-			xfKey:=fmt.Sprintf("%s:%s:%s",xffp,xfsbh,xfkprq)
-			xferr:=stub.PutState(xfKey,[]byte(string(bytes)))
-			if xferr!= nil {
-				fmt.Println(xferr)
-			}
+			return shim.Error(err.Error())
 		}
-	}*/
+
+
+		xfKey = fmt.Sprintf("fpdata:xffp:%s:%s",a["xfsbh"],a["kprq"])
+
+		fmt.Printf(xfKey)
+		err  = stub.PutState(xfKey,[]byte(string(datastr)))
+
+		if err!= nil {
+			fmt.Println(err)
+			return shim.Error(err.Error())
+		}
+
+	}
 	return shim.Success([]byte("submit success"))
 }
 
 func (t *cc1) query(stub shim.ChaincodeStubInterface, args []string) pb.Response{
-	var result string
+	// var result string
 	/*var response string
 	var interErr Error*/
-	gxf := args[0]
-	sh := args[1]
-	start := args[2]
-	end := args[3]
-	startKey:=fmt.Sprintf("%s:%s:%s",gxf,sh,start)
-	endKey:=fmt.Sprintf("%s:%s:%s",gxf,sh,end)
-	info,err := stub.GetStateByRange(startKey,endKey)
+	// fpdata:="fpdata"
+	// gxf := args[0]
+	// sh := args[1]
+	// start := args[2]
+	// end := args[3]
+	// startKey:=fmt.Sprintf("%s:%s:%s:%s",fpdata,gxf,sh,start)
+	// endKey:=fmt.Sprintf("%s:%s:%s:%s",fpdata,gxf,sh,end)
+	// info,err := stub.GetStateByRange(startKey,endKey)
 
-	rsp := make(map[string]string)
+/*	rsp := make(map[string]string)
 	for info.HasNext(){
 		response, interErr := info.Next()
 		if interErr != nil{
@@ -121,15 +120,20 @@ func (t *cc1) query(stub shim.ChaincodeStubInterface, args []string) pb.Response
 		rsp[response.Key] = string(response.Value)
 		fmt.Println(response.Key, string(response.Value))
 		result = string(response.Value)
-	}
+	}*/
+
+
+	key := fmt.Sprintf("fpdata:%s:%s:%s",args[0],args[1],args[2])
+	fp,err := stub.GetState(key)
+
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-	if info == nil {
+	if fp == nil {
 		return shim.Error("Entity not found")
 	}
 
-	return shim.Success([]byte(result))
+	return shim.Success(fp)
 
 }
 
@@ -149,15 +153,17 @@ func (t *cc1) report(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 			return shim.Error(err.Error())
 	}	
 
+	fpdata:="fpdata"
 	gxf := args[0]
 	sh := args[1]
 	start := args[2]
 	end := args[3]
-	startKey:=fmt.Sprintf("%s:%s:%s",gxf,sh,start)
-	endKey:=fmt.Sprintf("%s:%s:%s",gxf,sh,end)
+	startKey:=fmt.Sprintf("%s:%s:%s:%s",fpdata,gxf,sh,start)
+	endKey:=fmt.Sprintf("%s:%s:%s:%s",fpdata,gxf,sh,end)
+
 	info,err := stub.GetStateByRange(startKey,endKey)
 
-	key := fmt.Sprintf("%s:%s", sh, name)
+	key := fmt.Sprintf("privilege:%s:%s", sh, name)
 
 	priv_type_bytes,err := stub.GetState(key)
 
@@ -166,6 +172,8 @@ func (t *cc1) report(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 		jsonResp := fmt.Sprintf("{\"Error\":\"[%s]没有得到[%s]的授权，不能生成报告 \"}",name,sh)
 		return shim.Error(jsonResp)
 	}
+
+	fmt.Println("aaaa")
 
 	var num int = 0
 	var je float64 = 0.0//float64 = 0.0
@@ -176,7 +184,10 @@ func (t *cc1) report(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 			return shim.Error(interErr.Error())
 		}
 		
+		// fmt.Printf(string(response.Value))
+
 		fp := string_to_map(string(response.Value))
+
 		var fpje interface{} = fp["fpxx"].(map[string]interface{})["je"]
 		fpjestr:=fmt.Sprintf("%s",fpje)
 		temp, err := strconv.ParseFloat(fpjestr, 64)
@@ -187,6 +198,7 @@ func (t *cc1) report(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 		num = num + 1
 	}
 
+	fmt.Println("bbbb")
 
 	result := make(map[string]string)
 	result["num"] = strconv.Itoa(num)
@@ -205,16 +217,8 @@ func (t *cc1) report(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 		fmt.Println("report key",report_key)
 	}
 	return shim.Success(jsonRsp)
+	// return shim.Success(nil)
 }
-
-
-//发票表
-//fp:gffp:91420300571533687D:20181205
-//fp:xffp:91420300571533687D:20181205
-
-//授权表
-//91420300571533687D:aisino  -> 1/2...
-
 
 
 func  (t *cc1)  grant(stub shim.ChaincodeStubInterface, args []string) pb.Response{
@@ -229,7 +233,7 @@ func  (t *cc1)  grant(stub shim.ChaincodeStubInterface, args []string) pb.Respon
 	taker = args[1]
 	priv_type = args[2]
 
-	key := fmt.Sprintf("%s:%s", owner,taker)
+	key := fmt.Sprintf("privilege:%s:%s", owner,taker)
 	stub.PutState(key,[]byte(priv_type))
 
 	fmt.Printf("%s grant priv[%s] to %s",owner,taker,priv_type)
@@ -249,7 +253,7 @@ func  (t *cc1)  revoke(stub shim.ChaincodeStubInterface, args []string) pb.Respo
 	taker = args[1]
 	priv_type = args[2]
 
-	key := fmt.Sprintf("%s:%s", owner,taker)
+	key := fmt.Sprintf("privilege:%s:%s", owner,taker)
 
 	err := stub.DelState(key)
 	if err != nil {
@@ -273,19 +277,15 @@ func  (t *cc1) showPriv(stub shim.ChaincodeStubInterface, args []string) pb.Resp
 	owner = args[0]
 	taker = args[1]
 
-	key := fmt.Sprintf("%s:%s", owner, taker)
+	key := fmt.Sprintf("privilege:%s:%s", owner, taker)
 
 	priv_type_bytes,err := stub.GetState(key)
-
 
 
 	if err != nil {
 		jsonResp := fmt.Sprintf("{\"Error\":\"Fail to get priv for %s-%s \"}",owner, taker)
 		return shim.Error(jsonResp)
 	}
-
-	
-
 
 	if priv_type_bytes == nil {
 		jsonResp := fmt.Sprintf("{\"Error\":\"Null priv for %s-%s \"}",owner, taker)
