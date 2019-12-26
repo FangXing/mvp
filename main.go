@@ -10,6 +10,9 @@ import (
 	"bytes"
 	"encoding/pem"
 	"crypto/x509"
+	"math/rand"
+    "time"
+    "strings"
 )
 
 type cc1 struct {
@@ -20,7 +23,7 @@ func (t *cc1) Init(stub shim.ChaincodeStubInterface) pb.Response {
 }
 
 func (t *cc1) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
-	fmt.Println("ex02 Invoke")
+
 	function, args := stub.GetFunctionAndParameters()
 	if function == "submit" {
 		return t.submit(stub, args)
@@ -34,16 +37,20 @@ func (t *cc1) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return t.queryByPrefix(stub, args)
 	}else if function == "report"{
 		return t.report(stub, args)
+	}else if function == "reportCreate"{
+		return t.reportCreate(stub, args)
 	}else if function == "grant"{
 		return t.grant(stub, args)
 	}else if function == "showPriv"{
 		return t.showPriv(stub, args)
 	}else if function == "revoke"{
 		return t.revoke(stub, args)
+	}else if function == "reportQuery"{
+		return t.reportQuery(stub, args)
 	}
 	return shim.Error("Invalid Smart Contract function name.")
 }
-
+// pb.Response
 func (t *cc1) submit(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 	fmt.Println("进入submit方法")
 	datas ,_:= base64.StdEncoding.DecodeString(args[0])
@@ -195,7 +202,24 @@ func string_to_map(s string)(map[string]interface {}){
     return fp 
 }
 
-func (t *cc1) report(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+func randString(length int) string {
+    rand.Seed(time.Now().UnixNano())
+    rs := make([]string, length)
+    for start := 0; start < length; start++ {
+        t := rand.Intn(3)
+        if t == 0 {
+            rs = append(rs, strconv.Itoa(rand.Intn(10)))
+        } else if t == 1 {
+            rs = append(rs, string(rand.Intn(26)+65))
+        } else {
+            rs = append(rs, string(rand.Intn(26)+97))
+        }
+    }
+    return strings.Join(rs, "")
+}
+
+
+func (t *cc1) reportCreate(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 
 	name,err := getCreator(stub)
 	if err != nil{
@@ -222,7 +246,7 @@ func (t *cc1) report(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 		return shim.Error(jsonResp)
 	}
 
-	fmt.Println("aaaa")
+
 
 	var num int = 0
 	var je float64 = 0.0//float64 = 0.0
@@ -247,18 +271,20 @@ func (t *cc1) report(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 		num = num + 1
 	}
 
-	fmt.Println("bbbb")
+
 
 	result := make(map[string]string)
 	result["num"] = strconv.Itoa(num)
-	result["je"] = strconv.FormatFloat(je, 'E', -1, 64)
+	result["je"] = strconv.FormatFloat(je, 'f', -1, 64)
 	jsonRsp, err := json.Marshal(result)
 	if err != nil{
 		return shim.Error(err.Error())
 	}
 	fmt.Println(jsonRsp)
+	
+	report_key,_ := stub.CreateCompositeKey("report:",[]string{args[1], randString(15)})
 
-	report_key :=fmt.Sprintf("%s:%s:%s:%s",args[0],args[1],args[2],args[3])
+	
 	reporterr := stub.PutState(report_key,[]byte(string(jsonRsp)))
 	if reporterr != nil {
 		fmt.Println(reporterr)
@@ -268,6 +294,48 @@ func (t *cc1) report(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 	return shim.Success(jsonRsp)
 	// return shim.Success(nil)
 }
+
+func (t *cc1) reportQuery(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+
+	name,creatorerr := getCreator(stub)
+	if creatorerr != nil{
+			return shim.Error(creatorerr.Error())
+	}	
+	
+	sh := args[0]
+	key := fmt.Sprintf("privilege:%s:%s", sh, name)
+	priv_type_bytes,_ := stub.GetState(key)
+
+	// 没有授权，直接返回
+	if priv_type_bytes == nil {
+		jsonResp := fmt.Sprintf("{\"Error\":\"[%s]没有得到[%s]的授权，不能生成报告 \"}",name,sh)
+		return shim.Error(jsonResp)
+	}
+ 	
+	reports,err := stub.GetStateByPartialCompositeKey("report:",args)
+
+	fmt.Println("reports",reports)
+	
+	if err != nil {
+        return shim.Error(err.Error())
+    }
+    defer reports.Close()
+    
+    var report []string
+    for i := 0; reports.HasNext(); i++ {
+        responseRange, responseerr := reports.Next()
+        if responseerr != nil {
+            return shim.Error(responseerr.Error())
+        }
+
+        report_value := responseRange.Value
+        report = append(report, string(report_value))
+    }
+
+    reportjson,_ :=json.Marshal(report)
+	return shim.Success(reportjson)
+}
+
 
 
 func  (t *cc1)  grant(stub shim.ChaincodeStubInterface, args []string) pb.Response{
