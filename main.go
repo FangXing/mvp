@@ -26,6 +26,12 @@ func (t *cc1) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return t.submit(stub, args)
 	}else if function == "query" {
 		return t.query(stub, args)
+	} else if function == "rangeQuery" {
+		return t.rangeQuery(stub, args)
+	}else if function == "accountNumber"{
+		return t.accountNumber(stub, args)
+	}else if function == "queryByPrefix"{
+		return t.queryByPrefix(stub, args)
 	}else if function == "report"{
 		return t.report(stub, args)
 	}else if function == "grant"{
@@ -39,11 +45,8 @@ func (t *cc1) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 }
 
 func (t *cc1) submit(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	fmt.Println("进入submit方法")
 	datas ,_:= base64.StdEncoding.DecodeString(args[0])
-
-
-	fmt.Println(datas)
-	fmt.Println(string(datas))
 	var s []map[string]interface {}
 	var a map[string]interface {}
 	var err error
@@ -53,25 +56,14 @@ func (t *cc1) submit(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 		fmt.Println(err)
 		return shim.Error(err.Error())
 	}
-	// var gfsbh string
-	// var gfkprq string
 	var gfKey string
-
-	// var xfsbh string
-	// var xfkprq string
 	var xfKey string
-	// var row map[string]interface {}
-
-
 	for i:=0;i<len(s);i++{
-		// data:=s[i]
+		fmt.Println("遍历数组")
 		a = s[i]["fpxx"].(map[string]interface {})
-
 		gfKey = fmt.Sprintf("fpdata:gffp:%s:%s",a["gfsbh"],a["kprq"])
-
-		fmt.Printf(gfKey)
 		datastr,err := json.Marshal(s[i])
-		fmt.Printf(string(datastr))
+
 		if err != nil {
 			fmt.Println(err)
 			return shim.Error(err.Error())
@@ -83,46 +75,78 @@ func (t *cc1) submit(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 			return shim.Error(err.Error())
 		}
 
-
 		xfKey = fmt.Sprintf("fpdata:xffp:%s:%s",a["xfsbh"],a["kprq"])
-
-		fmt.Printf(xfKey)
 		err  = stub.PutState(xfKey,[]byte(string(datastr)))
-
 		if err!= nil {
 			fmt.Println(err)
 			return shim.Error(err.Error())
 		}
 
+
+		//创建组合键
+		/*gfmc := fmt.Sprintf("%s",a["gfmc"])
+		gfsbh := fmt.Sprintf("%s",a["gfsbh"])
+		xfmc := fmt.Sprintf("%s",a["xfmc"])
+		xfsbh := fmt.Sprintf("%s",a["xfsbh"])
+		key1,_:=stub.CreateCompositeKey("gsmc",[]string{gfmc,gfsbh})
+		key2,_:=stub.CreateCompositeKey("gsmc",[]string{xfmc,xfsbh})
+		fmt.Println("key1",key1)
+		fmt.Println("key2",key2)
+		stub.PutState(key1, fmt.Sprintf("{gsmc:%s:,gfsbh:%s}",gfmc,gfsbh))
+		stub.PutState(key2, fmt.Sprintf("{xfmc:%s:,xfsbh:%s}",xfmc,xfsbh))*/
+		fmt.Println("遍历数组结算")
+	}
+	fmt.Println("发票上传成功，submit方法结束")
+	return shim.Success([]byte("submit success"))
+}
+
+func (t *cc1) accountNumber (stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	if args[0]=="bank" {
+		fmt.Println("basnk")
+		key1, _ := stub.CreateCompositeKey("account", []string{ args[0], args[1]})
+		fmt.Println(key1)
+		stub.PutState(key1, []byte(fmt.Sprintf("{name:%s}", "银行测试")))
+	}else if args[0]=="zx"{
+		fmt.Println("zx")
+		key1, _ := stub.CreateCompositeKey("account", []string{ args[0], args[1]})
+		fmt.Println(key1)
+		stub.PutState(key1, []byte(fmt.Sprintf("{name:%s}", "征信测试")))
+	}else if args[0]=="qiye"{
+		fmt.Println("qiye")
+		key1, _ := stub.CreateCompositeKey("account", []string{ args[0], args[1]})
+		fmt.Println(key1)
+		stub.PutState(key1, []byte(fmt.Sprintf("{name:%s}", "企业测试")))
 	}
 	return shim.Success([]byte("submit success"))
 }
 
-func (t *cc1) query(stub shim.ChaincodeStubInterface, args []string) pb.Response{
-	// var result string
-	/*var response string
-	var interErr Error*/
-	// fpdata:="fpdata"
-	// gxf := args[0]
-	// sh := args[1]
-	// start := args[2]
-	// end := args[3]
-	// startKey:=fmt.Sprintf("%s:%s:%s:%s",fpdata,gxf,sh,start)
-	// endKey:=fmt.Sprintf("%s:%s:%s:%s",fpdata,gxf,sh,end)
-	// info,err := stub.GetStateByRange(startKey,endKey)
+func (t *cc1) queryByPrefix(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	fmt.Println("进入queryByPrefix方法")
+	var result string
+	rs, err := stub.GetStateByPartialCompositeKey(args[0], []string{})
+	if err != nil{
+		fmt.Println(err)
+		return  shim.Error(err.Error())
+	}
+	defer rs.Close()
 
-/*	rsp := make(map[string]string)
-	for info.HasNext(){
-		response, interErr := info.Next()
-		if interErr != nil{
-			return shim.Error(interErr.Error())
+	for rs.HasNext(){
+		fmt.Println("开始遍历")
+		responseRange, err := rs.Next()
+		if err != nil{
+			fmt.Println(err)
 		}
-		rsp[response.Key] = string(response.Value)
-		fmt.Println(response.Key, string(response.Value))
-		result = string(response.Value)
-	}*/
+		fmt.Println(responseRange.Key)
+		fmt.Println(string(responseRange.Value))
+		result = string(responseRange.Value)
+		fmt.Println("遍历结束")
+	}
+	fmt.Println("查询成功，queryByPrefix方法结束")
+	return shim.Success([]byte(result))
+}
 
-
+func (t *cc1) query(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	fmt.Println("进入query方法")
 	key := fmt.Sprintf("fpdata:%s:%s:%s",args[0],args[1],args[2])
 	fp,err := stub.GetState(key)
 
@@ -132,11 +156,36 @@ func (t *cc1) query(stub shim.ChaincodeStubInterface, args []string) pb.Response
 	if fp == nil {
 		return shim.Error("Entity not found")
 	}
-
+	fmt.Println("查询成功，query方法结束")
 	return shim.Success(fp)
 
 }
+func (t *cc1)  rangeQuery(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	fmt.Println("进入rangeQuery方法")
+	var result string
+	startKey:=fmt.Sprintf("fpdata:%s:%s:%s",args[0],args[1],args[2])
+	endKey:=fmt.Sprintf("fpdata:%s:%s:%s",args[0],args[1],args[3])
+	info,err := stub.GetStateByRange(startKey,endKey)
+	rsp := make(map[string]string)
+	for info.HasNext(){
+		response, interErr := info.Next()
+		if interErr != nil{
+			return shim.Error(interErr.Error())
+		}
+		rsp[response.Key] = string(response.Value)
+		fmt.Println(response.Key, string(response.Value))
+		result = string(response.Value)
+	}
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	if info == nil {
+		return shim.Error("Entity not found")
+	}
+	fmt.Println("查询成功，rangeQuery方法结束")
+	return shim.Success([]byte(result))
 
+}
 func string_to_map(s string)(map[string]interface {}){
     var fp map[string]interface{}
     // var fp map[string]string
