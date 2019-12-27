@@ -112,17 +112,17 @@ func (t *cc1) accountNumber (stub shim.ChaincodeStubInterface, args []string) pb
 		fmt.Println("basnk")
 		key1, _ := stub.CreateCompositeKey("account", []string{ args[0], args[1]})
 		fmt.Println(key1)
-		stub.PutState(key1, []byte(fmt.Sprintf("{name:%s}", "银行测试")))
+		stub.PutState(key1, []byte(fmt.Sprintf("{name:%s}", args[2])))
 	}else if args[0]=="zx"{
 		fmt.Println("zx")
 		key1, _ := stub.CreateCompositeKey("account", []string{ args[0], args[1]})
 		fmt.Println(key1)
-		stub.PutState(key1, []byte(fmt.Sprintf("{name:%s}", "征信测试")))
+		stub.PutState(key1, []byte(fmt.Sprintf("{name:%s}", args[2])))
 	}else if args[0]=="qiye"{
 		fmt.Println("qiye")
 		key1, _ := stub.CreateCompositeKey("account", []string{ args[0], args[1]})
 		fmt.Println(key1)
-		stub.PutState(key1, []byte(fmt.Sprintf("{name:%s}", "企业测试")))
+		stub.PutState(key1, []byte(fmt.Sprintf("{name:%s}", args[2])))
 	}
 	return shim.Success([]byte("submit success"))
 }
@@ -130,6 +130,7 @@ func (t *cc1) accountNumber (stub shim.ChaincodeStubInterface, args []string) pb
 func (t *cc1) queryByPrefix(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 	fmt.Println("进入queryByPrefix方法")
 	var result string
+	var resulList []string
 	rs, err := stub.GetStateByPartialCompositeKey(args[0], []string{})
 	if err != nil{
 		fmt.Println(err)
@@ -146,10 +147,18 @@ func (t *cc1) queryByPrefix(stub shim.ChaincodeStubInterface, args []string) pb.
 		fmt.Println(responseRange.Key)
 		fmt.Println(string(responseRange.Value))
 		result = string(responseRange.Value)
+		resulList = append(resulList,result)
 		fmt.Println("遍历结束")
 	}
+	var buffer bytes.Buffer
+	buffer.WriteString("[")
+	for i:=0;i<len(resulList) ;i++  {
+		buffer.WriteString(resulList[i])
+		buffer.WriteString(",")
+	}
+	buffer.WriteString("]")
 	fmt.Println("查询成功，queryByPrefix方法结束")
-	return shim.Success([]byte(result))
+	return shim.Success(buffer.Bytes())
 }
 
 func (t *cc1) query(stub shim.ChaincodeStubInterface, args []string) pb.Response{
