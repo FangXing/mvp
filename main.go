@@ -11,8 +11,8 @@ import (
 	"encoding/pem"
 	"crypto/x509"
 	"math/rand"
-    "time"
     "strings"
+	"time"
 )
 
 type cc1 struct {
@@ -35,8 +35,6 @@ func (t *cc1) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return t.accountNumber(stub, args)
 	}else if function == "queryByPrefix"{
 		return t.queryByPrefix(stub, args)
-	}else if function == "report"{
-		return t.report(stub, args)
 	}else if function == "reportCreate"{
 		return t.reportCreate(stub, args)
 	}else if function == "grant"{
@@ -45,8 +43,10 @@ func (t *cc1) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return t.showPriv(stub, args)
 	}else if function == "revoke"{
 		return t.revoke(stub, args)
-	}else if function == "reportQuery"{
-		return t.reportQuery(stub, args)
+	}else if function == "reportList"{
+		return t.reportList(stub, args)
+	}else if function == "reportDetail"{
+		return t.reportDetail(stub, args)
 	}
 	return shim.Error("Invalid Smart Contract function name.")
 }
@@ -281,21 +281,30 @@ func (t *cc1) reportCreate(stub shim.ChaincodeStubInterface, args []string) pb.R
 		return shim.Error(err.Error())
 	}
 	fmt.Println(jsonRsp)
-	
-	report_key,_ := stub.CreateCompositeKey("report:",[]string{args[1], randString(15)})
+	random:=randString(15)
+	//uuid:= uuid.Must(uuid.NewV4())
+	report_key,_ := stub.CreateCompositeKey("report:",[]string{args[1],  random})
 
-	
+
+	creatTime:= time.Now().String()
+	var infos ="{\"bizID\":\"%s\",\"time\":\"%s\",\"user\":\"%s\"}"
+	stub.PutState(report_key,[]byte(fmt.Sprintf(infos,random,creatTime,name)))
+
 	reporterr := stub.PutState(report_key,[]byte(string(jsonRsp)))
+
+
 	if reporterr != nil {
 		fmt.Println(reporterr)
 	} else {
 		fmt.Println("report key",report_key)
 	}
+	fmt.Println(string(jsonRsp))
+
 	return shim.Success(jsonRsp)
 	// return shim.Success(nil)
 }
 
-func (t *cc1) reportQuery(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+func (t *cc1) reportList(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 
 	name,creatorerr := getCreator(stub)
 	if creatorerr != nil{
@@ -308,7 +317,7 @@ func (t *cc1) reportQuery(stub shim.ChaincodeStubInterface, args []string) pb.Re
 
 	// 没有授权，直接返回
 	if priv_type_bytes == nil {
-		jsonResp := fmt.Sprintf("{\"Error\":\"[%s]没有得到[%s]的授权，不能生成报告 \"}",name,sh)
+		jsonResp := fmt.Sprintf("{\"Error\":\"[%s]没有得到[%s]的授权，不能查询报告 \"}",name,sh)
 		return shim.Error(jsonResp)
 	}
  	
@@ -328,14 +337,57 @@ func (t *cc1) reportQuery(stub shim.ChaincodeStubInterface, args []string) pb.Re
             return shim.Error(responseerr.Error())
         }
 
-        report_value := responseRange.Value
-        report = append(report, string(report_value))
+        /*report_value := responseRange.Key
+        report = append(report, string(report_value))*/
+		_, reportKeyParts, _ := stub.SplitCompositeKey(responseRange.Key)
+		fmt.Println("reportKeyParts",reportKeyParts)
+		report = append(report, reportKeyParts[1])
     }
 
     reportjson,_ :=json.Marshal(report)
 	return shim.Success(reportjson)
 }
 
+func (t *cc1) reportDetail(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+
+	name,creatorerr := getCreator(stub)
+	if creatorerr != nil{
+		return shim.Error(creatorerr.Error())
+	}
+
+	sh := args[0]
+	key := fmt.Sprintf("privilege:%s:%s", sh, name)
+	priv_type_bytes,_ := stub.GetState(key)
+
+	// 没有授权，直接返回
+	if priv_type_bytes == nil {
+		jsonResp := fmt.Sprintf("{\"Error\":\"[%s]没有得到[%s]的授权，不能查询报告 \"}",name,sh)
+		return shim.Error(jsonResp)
+	}
+
+	reports,err := stub.GetStateByPartialCompositeKey("report:",args)
+
+	fmt.Println("reports",reports)
+
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	defer reports.Close()
+
+	var report []string
+	for i := 0; reports.HasNext(); i++ {
+		responseRange, responseerr := reports.Next()
+		if responseerr != nil {
+			return shim.Error(responseerr.Error())
+		}
+
+		report_value := responseRange.Value
+		report = append(report, string(report_value))
+	}
+
+	reportjson,_ :=json.Marshal(report)
+	return shim.Success(reportjson)
+}
 
 
 func  (t *cc1)  grant(stub shim.ChaincodeStubInterface, args []string) pb.Response{
@@ -418,6 +470,28 @@ func  (t *cc1) showPriv(stub shim.ChaincodeStubInterface, args []string) pb.Resp
 	return shim.Success( []byte(jsonResp))
 }
 
+func querySchoolIds(stub shim.ChaincodeStubInterface) []string {
+	resultsIterator, err := stub.GetStateByPartialCompositeKey("School", []string{"school"})
+	if err != nil {
+		return nil
+	}
+	defer resultsIterator.Close()
+
+	scIds := make([]string,0)
+	for i := 0; resultsIterator.HasNext(); i++ {
+		responseRange, err := resultsIterator.Next()
+		if err != nil {
+			return nil
+		}
+		_, compositeKeyParts, err := stub.SplitCompositeKey(responseRange.Key)
+		if err != nil {
+			return nil
+		}
+		returnedSchoolId := compositeKeyParts[1]
+		scIds = append(scIds, returnedSchoolId)
+	}
+	return scIds
+}
 
 // 获取操作成员
 func getCreator(stub shim.ChaincodeStubInterface) (string, error) {
