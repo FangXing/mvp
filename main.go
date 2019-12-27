@@ -91,16 +91,16 @@ func (t *cc1) submit(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 
 
 		//创建组合键
-		/*gfmc := fmt.Sprintf("%s",a["gfmc"])
+		gfmc := fmt.Sprintf("%s",a["gfmc"])
 		gfsbh := fmt.Sprintf("%s",a["gfsbh"])
 		xfmc := fmt.Sprintf("%s",a["xfmc"])
 		xfsbh := fmt.Sprintf("%s",a["xfsbh"])
-		key1,_:=stub.CreateCompositeKey("gsmc",[]string{gfmc,gfsbh})
-		key2,_:=stub.CreateCompositeKey("gsmc",[]string{xfmc,xfsbh})
+		key1,_:=stub.CreateCompositeKey("gfmc",[]string{gfmc,gfsbh})
+		key2,_:=stub.CreateCompositeKey("xfmc",[]string{xfmc,xfsbh})
 		fmt.Println("key1",key1)
 		fmt.Println("key2",key2)
-		stub.PutState(key1, fmt.Sprintf("{gsmc:%s:,gfsbh:%s}",gfmc,gfsbh))
-		stub.PutState(key2, fmt.Sprintf("{xfmc:%s:,xfsbh:%s}",xfmc,xfsbh))*/
+		stub.PutState(key1, []byte(fmt.Sprintf("{gsmc:%s:,gfsbh:%s}",gfmc,gfsbh)))
+		stub.PutState(key2, []byte(fmt.Sprintf("{xfmc:%s:,xfsbh:%s}",xfmc,xfsbh)))
 		fmt.Println("遍历数组结算")
 	}
 	fmt.Println("发票上传成功，submit方法结束")
@@ -332,7 +332,7 @@ func (t *cc1) reportList(stub shim.ChaincodeStubInterface, args []string) pb.Res
  	
 	reports,err := stub.GetStateByPartialCompositeKey("report:",args)
 
-	fmt.Println("reports",reports)
+	//fmt.Println("reports",reports)
 	
 	if err != nil {
         return shim.Error(err.Error())
@@ -351,10 +351,22 @@ func (t *cc1) reportList(stub shim.ChaincodeStubInterface, args []string) pb.Res
 		_, reportKeyParts, _ := stub.SplitCompositeKey(responseRange.Key)
 		fmt.Println("reportKeyParts",reportKeyParts)
 		report = append(report, reportKeyParts[1])
+		fmt.Println(report)
     }
+	bArrayMemberAlreadyWritten := false
+	var buffer bytes.Buffer
+	//buffer.WriteString("[")
+	for i:=0;i<len(report) ;i++  {
+		buffer.WriteString(report[i])
+		if bArrayMemberAlreadyWritten == true {
+			buffer.WriteString(",")
+		}
+		bArrayMemberAlreadyWritten = true
+	}
+	//buffer.WriteString("]")
 
-    reportjson,_ :=json.Marshal(report)
-	return shim.Success(reportjson)
+    //reportjson,_ :=json.Marshal(report)
+	return shim.Success(buffer.Bytes())
 }
 
 func (t *cc1) reportDetail(stub shim.ChaincodeStubInterface, args []string) pb.Response{
