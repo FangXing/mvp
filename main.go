@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"math/rand"
     "strings"
+	"errors"
 	"time"
 )
 
@@ -23,7 +24,7 @@ func (t *cc1) Init(stub shim.ChaincodeStubInterface) pb.Response {
 }
 
 func (t *cc1) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
-
+	//queryWSQ
 	function, args := stub.GetFunctionAndParameters()
 	if function == "submit" {
 		return t.submit(stub, args)
@@ -33,6 +34,8 @@ func (t *cc1) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return t.rangeQuery(stub, args)
 	}else if function == "accountNumber"{
 		return t.accountNumber(stub, args)
+	}else if function == "accountUserInfo"{
+		return t.accountUserInfo(stub, args)
 	}else if function == "queryByPrefix"{
 		return t.queryByPrefix(stub, args)
 	}else if function == "reportCreate"{
@@ -50,7 +53,7 @@ func (t *cc1) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	}
 	return shim.Error("Invalid Smart Contract function name.")
 }
-// pb.Response
+
 func (t *cc1) submit(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 	fmt.Println("进入submit方法")
 	datas ,_:= base64.StdEncoding.DecodeString(args[0])
@@ -88,8 +91,6 @@ func (t *cc1) submit(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 			fmt.Println(err)
 			return shim.Error(err.Error())
 		}
-
-
 		//创建组合键
 		gfmc := fmt.Sprintf("%s",a["gfmc"])
 		gfsbh := fmt.Sprintf("%s",a["gfsbh"])
@@ -99,8 +100,8 @@ func (t *cc1) submit(stub shim.ChaincodeStubInterface, args []string) pb.Respons
 		key2,_:=stub.CreateCompositeKey("xfmc",[]string{xfmc,xfsbh})
 		fmt.Println("key1",key1)
 		fmt.Println("key2",key2)
-		stub.PutState(key1, []byte(fmt.Sprintf("{gsmc:%s:,gfsbh:%s}",gfmc,gfsbh)))
-		stub.PutState(key2, []byte(fmt.Sprintf("{xfmc:%s:,xfsbh:%s}",xfmc,xfsbh)))
+		stub.PutState(key1, []byte(fmt.Sprintf(`{"gsmc":"%s","gfsbh":"%s"}`,gfmc,gfsbh)))
+		stub.PutState(key2, []byte(fmt.Sprintf(`{"xfmc":"%s","xfsbh":"%s"}`,xfmc,xfsbh)))
 		fmt.Println("遍历数组结算")
 	}
 	fmt.Println("发票上传成功，submit方法结束")
@@ -126,6 +127,14 @@ func (t *cc1) accountNumber (stub shim.ChaincodeStubInterface, args []string) pb
 	}
 	return shim.Success([]byte("submit success"))
 }
+func (t *cc1) accountUserInfo (stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	userinfo,_:=stub.CreateCompositeKey(fmt.Sprintf("account%s",args[0]),[]string{args[1],args[2]})
+	stub.PutState(userinfo, []byte(fmt.Sprintf(`{"mc":"%s","taxno":"%s"}`,args[1],args[2])))
+
+	return shim.Success([]byte("submit success"))
+}
+
+
 
 func (t *cc1) queryByPrefix(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 	fmt.Println("进入queryByPrefix方法")
@@ -154,7 +163,45 @@ func (t *cc1) queryByPrefix(stub shim.ChaincodeStubInterface, args []string) pb.
 	buffer.WriteString("[")
 	for i:=0;i<len(resulList) ;i++  {
 		buffer.WriteString(resulList[i])
-		buffer.WriteString(",")
+		if i != len(resulList)-1 {
+			buffer.WriteString(",")
+		}
+	}
+	buffer.WriteString("]")
+	fmt.Println("查询成功，queryByPrefix方法结束")
+	return shim.Success(buffer.Bytes())
+}
+
+func (t *cc1) queryBy(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	fmt.Println("进入queryByPrefix方法")
+	var result string
+	var resulList []string
+	rs, err := stub.GetStateByPartialCompositeKey(args[0], []string{})
+	if err != nil{
+		fmt.Println(err)
+		return  shim.Error(err.Error())
+	}
+	defer rs.Close()
+
+	for rs.HasNext(){
+		fmt.Println("开始遍历")
+		responseRange, err := rs.Next()
+		if err != nil{
+			fmt.Println(err)
+		}
+		fmt.Println(responseRange.Key)
+		fmt.Println(string(responseRange.Value))
+		result = string(responseRange.Value)
+		resulList = append(resulList,result)
+		fmt.Println("遍历结束")
+	}
+	var buffer bytes.Buffer
+	buffer.WriteString("[")
+	for i:=0;i<len(resulList) ;i++  {
+		buffer.WriteString(resulList[i])
+		if i != len(resulList)-1 {
+			buffer.WriteString(",")
+		}
 	}
 	buffer.WriteString("]")
 	fmt.Println("查询成功，queryByPrefix方法结束")
@@ -204,10 +251,8 @@ func (t *cc1)  rangeQuery(stub shim.ChaincodeStubInterface, args []string) pb.Re
 }
 func string_to_map(s string)(map[string]interface {}){
     var fp map[string]interface{}
-    // var fp map[string]string
     // 将字符串反解析为字典
     json.Unmarshal([]byte(s), &fp)
-    // fmt.Println(fp)
     return fp 
 }
 
@@ -240,22 +285,20 @@ func (t *cc1) reportCreate(stub shim.ChaincodeStubInterface, args []string) pb.R
 	sh := args[1]
 	start := args[2]
 	end := args[3]
+	yhsh := args[4]
 	startKey:=fmt.Sprintf("%s:%s:%s:%s",fpdata,gxf,sh,start)
 	endKey:=fmt.Sprintf("%s:%s:%s:%s",fpdata,gxf,sh,end)
 
 	info,err := stub.GetStateByRange(startKey,endKey)
 
-	key := fmt.Sprintf("privilege:%s:%s", sh, name)
 
-	priv_type_bytes,err := stub.GetState(key)
-
+	certMsg,_ := GetMsgFromCert(stub)
+	rs, err := stub.GetStateByPartialCompositeKey(fmt.Sprintf("priv1"), []string{certMsg["oid"],sh})
 	//没有授权，直接返回
-	if priv_type_bytes == nil {
-		jsonResp := fmt.Sprintf("{\"Error\":\"[%s]没有得到[%s]的授权，不能生成报告 \"}",name,sh)
+	if rs == nil {
+		jsonResp := fmt.Sprintf("{\"Error\":\"[%s]没有得到[%s]的授权，不能生成报告 \"}",name,args[4])
 		return shim.Error(jsonResp)
 	}
-
-
 
 	var num int = 0
 	var je float64 = 0.0//float64 = 0.0
@@ -265,8 +308,7 @@ func (t *cc1) reportCreate(stub shim.ChaincodeStubInterface, args []string) pb.R
 		if interErr != nil{
 			return shim.Error(interErr.Error())
 		}
-		
-		// fmt.Printf(string(response.Value))
+
 
 		fp := string_to_map(string(response.Value))
 
@@ -291,102 +333,72 @@ func (t *cc1) reportCreate(stub shim.ChaincodeStubInterface, args []string) pb.R
 	}
 	fmt.Println(jsonRsp)
 	random:=randString(15)
-	//uuid:= uuid.Must(uuid.NewV4())
-	report_key,_ := stub.CreateCompositeKey("report:",[]string{args[1],  random})
 
+	report_key1,_ := stub.CreateCompositeKey(fmt.Sprintf("report%s",certMsg["oid"]),[]string{args[1],random}) //征信
+	report_key2,_ := stub.CreateCompositeKey(fmt.Sprintf("report%s",yhsh),[]string{args[1],random})
 
-	creatTime:= time.Now().String()
-	var infos ="{\"bizID\":\"%s\",\"time\":\"%s\",\"user\":\"%s\"}"
-	stub.PutState(report_key,[]byte(fmt.Sprintf(infos,random,creatTime,name)))
+	reporterr1 := stub.PutState(report_key1,[]byte(string(jsonRsp)))
+	reporterr2 := stub.PutState(report_key2,[]byte(string(jsonRsp)))
 
-	reporterr := stub.PutState(report_key,[]byte(string(jsonRsp)))
+	if reporterr2 != nil {
+		fmt.Println(reporterr2)
+		return shim.Error(reporterr2.Error())
+	}
 
-
-	if reporterr != nil {
-		fmt.Println(reporterr)
+	if reporterr1 != nil {
+		fmt.Println(reporterr1)
+		return shim.Error(reporterr1.Error())
 	} else {
-		fmt.Println("report key",report_key)
+		fmt.Println("report key",reporterr1,reporterr2)
 	}
 	fmt.Println(string(jsonRsp))
 
 	return shim.Success(jsonRsp)
-	// return shim.Success(nil)
+
 }
 
 func (t *cc1) reportList(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	certMsg,_ := GetMsgFromCert(stub)
 
-	name,creatorerr := getCreator(stub)
-	if creatorerr != nil{
-			return shim.Error(creatorerr.Error())
-	}	
-	
-	sh := args[0]
-	key := fmt.Sprintf("privilege:%s:%s", sh, name)
-	priv_type_bytes,_ := stub.GetState(key)
-
-	// 没有授权，直接返回
-	if priv_type_bytes == nil {
-		jsonResp := fmt.Sprintf("{\"Error\":\"[%s]没有得到[%s]的授权，不能查询报告 \"}",name,sh)
-		return shim.Error(jsonResp)
-	}
- 	
-	reports,err := stub.GetStateByPartialCompositeKey("report:",args)
-
-	//fmt.Println("reports",reports)
-	
+	reports,err:= stub.GetStateByPartialCompositeKey(fmt.Sprintf("report%s",certMsg["oid"]),[]string{})
 	if err != nil {
         return shim.Error(err.Error())
     }
     defer reports.Close()
     
     var report []string
+
     for i := 0; reports.HasNext(); i++ {
         responseRange, responseerr := reports.Next()
-        if responseerr != nil {
+
+		_, reportKeyParts, _  := stub.SplitCompositeKey(responseRange.Key)
+
+		if responseerr != nil {
             return shim.Error(responseerr.Error())
         }
 
-        /*report_value := responseRange.Key
-        report = append(report, string(report_value))*/
-		_, reportKeyParts, _ := stub.SplitCompositeKey(responseRange.Key)
+		report = append(report, fmt.Sprintf("%s_%s",reportKeyParts[0],reportKeyParts[1]))
 		fmt.Println("reportKeyParts",reportKeyParts)
-		report = append(report, reportKeyParts[1])
-		fmt.Println(report)
+
     }
-	bArrayMemberAlreadyWritten := false
+
 	var buffer bytes.Buffer
-	//buffer.WriteString("[")
+
 	for i:=0;i<len(report) ;i++  {
 		buffer.WriteString(report[i])
-		if bArrayMemberAlreadyWritten == true {
+		if i != len(report)-1 {
 			buffer.WriteString(",")
 		}
-		bArrayMemberAlreadyWritten = true
 	}
-	//buffer.WriteString("]")
 
-    //reportjson,_ :=json.Marshal(report)
 	return shim.Success(buffer.Bytes())
 }
 
 func (t *cc1) reportDetail(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 
-	name,creatorerr := getCreator(stub)
-	if creatorerr != nil{
-		return shim.Error(creatorerr.Error())
-	}
+	certMsg,_ := GetMsgFromCert(stub)
 
-	sh := args[0]
-	key := fmt.Sprintf("privilege:%s:%s", sh, name)
-	priv_type_bytes,_ := stub.GetState(key)
-
-	// 没有授权，直接返回
-	if priv_type_bytes == nil {
-		jsonResp := fmt.Sprintf("{\"Error\":\"[%s]没有得到[%s]的授权，不能查询报告 \"}",name,sh)
-		return shim.Error(jsonResp)
-	}
-
-	reports,err := stub.GetStateByPartialCompositeKey("report:",args)
+	reports,err := stub.GetStateByPartialCompositeKey(fmt.Sprintf("report%s",certMsg["oid"]),args)
 
 	fmt.Println("reports",reports)
 
@@ -407,29 +419,69 @@ func (t *cc1) reportDetail(stub shim.ChaincodeStubInterface, args []string) pb.R
 	}
 
 	reportjson,_ :=json.Marshal(report)
+
 	return shim.Success(reportjson)
 }
 
 
 func  (t *cc1)  grant(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 
-	if len(args) != 3{
-		return shim.Error("Incorrect number of arguments. Expecting 3")
-	}
+	certMsg,_ := GetMsgFromCert(stub)
 
-	var owner,taker,priv_type string
+	key1,_:=stub.CreateCompositeKey(fmt.Sprintf("priv%s",args[0]),[]string{certMsg["oid"],args[1]})
+	key2,_:=stub.CreateCompositeKey(fmt.Sprintf("priv%s%s",args[0],certMsg["oid"]),[]string{args[1]})
+	//反向
+	key3,_:=stub.CreateCompositeKey(fmt.Sprintf("privreversal%s",args[0]),[]string{args[1],certMsg["oid"]})
+	key4,_:=stub.CreateCompositeKey(fmt.Sprintf("privreversal%s%s",args[0],args[1]),[]string{certMsg["oid"]})
 
-	owner = args[0]
-	taker = args[1]
-	priv_type = args[2]
+	stub.PutState(key1,[]byte(fmt.Sprintf(`{"gsmc":"%s","tyshxydm":"%s"}`,args[2],args[1])))
+	stub.PutState(key2,[]byte(fmt.Sprintf(`{"gsmc":"%s","tyshxydm":"%s"}`,args[2],args[1])))
 
-	key := fmt.Sprintf("privilege:%s:%s", owner,taker)
-	stub.PutState(key,[]byte(priv_type))
-
-	fmt.Printf("%s grant priv[%s] to %s",owner,taker,priv_type)
+	stub.PutState(key3,[]byte(fmt.Sprintf(`{"gsmc":"%s","tyshxydm":"%s"}`,args[2],args[1])))
+	stub.PutState(key4,[]byte(fmt.Sprintf(`{"gsmc":"%s","tyshxydm":"%s"}`,args[2],args[1])))
+	fmt.Println(key1,certMsg["oid"])
+	fmt.Println(key2,certMsg["oid"])
+	//stub.DelState(args[3])
 	return shim.Success(nil)
 }
 
+func GetMsgFromCert(stub shim.ChaincodeStubInterface) (map[string]string, error) {
+	var role string
+	var id string
+	var application string
+	var taxNum string
+	var oid string
+	certMsg := make(map[string]string)
+
+	creator, _ := stub.GetCreator()
+	certStart := bytes.IndexAny(creator, "-----BEGIN")
+	if certStart == -1 {
+		return nil, errors.New("8002")
+	}
+
+	certText := creator[certStart:]
+	certDERBlock, _ := pem.Decode(certText)
+	cert, err := x509.ParseCertificate(certDERBlock.Bytes)
+	if err != nil {
+		return nil, errors.New("8002")
+	}
+
+	for i := 0; i < len(cert.Extensions); i++ {
+		ExtensionId := cert.Extensions[i].Id.String()
+		fmt.Println(ExtensionId)
+		fmt.Println(string(cert.Extensions[i].Value))
+		if ExtensionId == "0.9.2342.19200300.100.1.1" {
+			oid = string(cert.Extensions[i].Value)
+		}
+	}
+	certMsg["role"] = role
+	certMsg["id"] = id
+	certMsg["application"] = application
+	certMsg["taxNum"] = taxNum
+	certMsg["oid"] = oid
+
+	return certMsg, nil
+}
 
 func  (t *cc1)  revoke(stub shim.ChaincodeStubInterface, args []string) pb.Response{
 
@@ -487,7 +539,6 @@ func  (t *cc1) showPriv(stub shim.ChaincodeStubInterface, args []string) pb.Resp
 	jsonResp := fmt.Sprintf("{\" [%s] have priv [%s] from  [%s']\"}",owner,priv_type,taker)
 
 	fmt.Printf("Query Response:%s",jsonResp)
-	// return shim.Success(priv_type_bytes)
 	return shim.Success( []byte(jsonResp))
 }
 
