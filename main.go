@@ -25,6 +25,7 @@ func (t *cc1) Init(stub shim.ChaincodeStubInterface) pb.Response {
 
 func (t *cc1) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	//queryWSQ
+
 	function, args := stub.GetFunctionAndParameters()
 	if function == "submit" {
 		return t.submit(stub, args)
@@ -32,8 +33,8 @@ func (t *cc1) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return t.query(stub, args)
 	} else if function == "rangeQuery" {
 		return t.rangeQuery(stub, args)
-	}else if function == "accountNumber"{
-		return t.accountNumber(stub, args)
+	}else if function == "unGrant"{
+		return t.unGrant(stub, args)
 	}else if function == "accountUserInfo"{
 		return t.accountUserInfo(stub, args)
 	}else if function == "queryByPrefix"{
@@ -429,21 +430,34 @@ func  (t *cc1)  grant(stub shim.ChaincodeStubInterface, args []string) pb.Respon
 	certMsg,_ := GetMsgFromCert(stub)
 
 	key1,_:=stub.CreateCompositeKey(fmt.Sprintf("priv%s",args[0]),[]string{certMsg["oid"],args[1]})
-	key2,_:=stub.CreateCompositeKey(fmt.Sprintf("priv%s%s",args[0],certMsg["oid"]),[]string{args[1]})
+
+	//key2,_:=stub.CreateCompositeKey(fmt.Sprintf("priv%s%s",args[0],certMsg["oid"]),[]string{args[1]})
 	//反向
-	key3,_:=stub.CreateCompositeKey(fmt.Sprintf("privreversal%s",args[0]),[]string{args[1],certMsg["oid"]})
-	key4,_:=stub.CreateCompositeKey(fmt.Sprintf("privreversal%s%s",args[0],args[1]),[]string{certMsg["oid"]})
+	/*key3,_:=stub.CreateCompositeKey(fmt.Sprintf("privreversal%s",args[0]),[]string{args[1],certMsg["oid"]})
+	key4,_:=stub.CreateCompositeKey(fmt.Sprintf("privreversal%s%s",args[0],args[1]),[]string{certMsg["oid"]})*/
 
 	stub.PutState(key1,[]byte(fmt.Sprintf(`{"gsmc":"%s","tyshxydm":"%s"}`,args[2],args[1])))
-	stub.PutState(key2,[]byte(fmt.Sprintf(`{"gsmc":"%s","tyshxydm":"%s"}`,args[2],args[1])))
+	//stub.PutState(key2,[]byte(fmt.Sprintf(`{"gsmc":"%s","tyshxydm":"%s"}`,args[2],args[1])))
 
-	stub.PutState(key3,[]byte(fmt.Sprintf(`{"gsmc":"%s","tyshxydm":"%s"}`,args[2],args[1])))
-	stub.PutState(key4,[]byte(fmt.Sprintf(`{"gsmc":"%s","tyshxydm":"%s"}`,args[2],args[1])))
+	/*stub.PutState(key3,[]byte(fmt.Sprintf(`{"gsmc":"%s","tyshxydm":"%s"}`,args[2],args[1])))
+	stub.PutState(key4,[]byte(fmt.Sprintf(`{"gsmc":"%s","tyshxydm":"%s"}`,args[2],args[1])))*/
 	fmt.Println(key1,certMsg["oid"])
-	fmt.Println(key2,certMsg["oid"])
+	//fmt.Println(key2,certMsg["oid"])
 	//stub.DelState(args[3])
 	return shim.Success(nil)
 }
+func  (t *cc1)  unGrant(stub shim.ChaincodeStubInterface, args []string) pb.Response{
+	certMsg,_ := GetMsgFromCert(stub)
+	key1,_:=stub.CreateCompositeKey(fmt.Sprintf("priv%s",args[0]),[]string{certMsg["oid"],args[1]})
+	stub.DelState(key1)
+	//key2,_:=stub.CreateCompositeKey(fmt.Sprintf("priv%s%s",args[0],certMsg["oid"]),[]string{args[1]})
+	//stub.DelState(key2)
+	//fmt.Println(fmt.Sprintf("priv%s%s%s",args[0],certMsg["oid"],args[1]))
+	//stub.DelState(args[3])
+	return shim.Success([]byte(string("删除成功")))
+}
+
+
 
 func GetMsgFromCert(stub shim.ChaincodeStubInterface) (map[string]string, error) {
 	var role string
