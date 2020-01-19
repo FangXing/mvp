@@ -841,8 +841,11 @@ func (t *cc1) queryWithLoan(stub shim.ChaincodeStubInterface, args []string) pb.
 		/*LetterCreditFB :=LetterCreditFB{
 			LetterCredit:*LetterCredit,
 			FinancingBills:FinancingBillList}*/
+		if bankInfoAsBytes!=nil {
+
+			result = append(result, string(bankInfoAsBytes))
+		}
 		result = append(result, string(LetterCreditAsBytes))
-		result = append(result, string(bankInfoAsBytes))
 	}
 	buffer.WriteString("[")
 	for i := 0; i < len(result); i++ {
